@@ -30,7 +30,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     // Intentional setState in effect: confirming session is an async side
     // effect, not a render-derived value.
-    /* eslint-disable react-hooks/set-state-in-effect */
+     
     void (async () => {
       const { data } = await supabase.auth.getSession()
       if (!data.session) {
@@ -40,7 +40,7 @@ export default function ResetPasswordPage() {
       }
       setCheckingSession(false)
     })()
-    /* eslint-enable react-hooks/set-state-in-effect */
+     
   }, [router, supabase])
 
   async function handleSubmit(e: React.FormEvent) {

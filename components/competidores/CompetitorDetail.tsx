@@ -84,7 +84,6 @@ export function CompetitorDetail({ username }: Props) {
   // Delete dialog
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  // Drawer state — Agent C will integrate ReelDetailDrawer in Ola 3
   const [selectedReelId, setSelectedReelId] = useState<string | null>(null)
 
   const loadDetailAbortRef = useRef<AbortController | null>(null)

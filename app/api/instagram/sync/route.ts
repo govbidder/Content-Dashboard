@@ -155,7 +155,7 @@ export async function POST(): Promise<NextResponse> {
             syncedAt: new Date(),
           },
         })
-        .then((_res) => u.instagramId)
+        .then(() => u.instagramId)
         .catch((err) => {
           console.error('[instagram/sync] upsert failed for', u.instagramId, err)
           throw err
