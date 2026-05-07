@@ -40,13 +40,13 @@ Path alias `@/*` → raíz del repo. Importar como `@/lib/db`.
 - **`lib/auth-user.ts`** — helpers: `requireUserId()`, `requireProfile()`, `requireSuperAdmin()`, `requireActiveClient()` (devuelve `{ userId, clientId }`). Constante `ACTIVE_CLIENT_COOKIE = 'activeClientId'`.
 - **`lib/supabase/{client,server,admin}.ts`** — browser / server-with-cookies / service-role (bypasa RLS, cached con `let` local).
 - **`lib/db.ts`** — Prisma singleton vía `globalThis`. Export `{ db }`.
-- **`lib/utils/ratelimit.ts`** — wrapper Upstash. Variantes: `checkRateLimit` (devuelve `{ success }`) y `checkSignupRateLimit` (IP, 3/hora). ⚠️ Admin routes usan `rl.success`; analizador usa `rl.allowed` — **shapes inconsistentes, cuidado al copiar**.
+- **`lib/utils/ratelimit.ts`** — wrapper Upstash. `checkRateLimit(ip, key, requests, window)` devuelve `{ success } | null`. Todos los callers usan el patrón `if (rl && !rl.success) return 429`. (Hubo un segundo helper con shape `.allowed` — ya removido.)
 
 ---
 
-## Modelos Prisma (26 en `schema.prisma`)
+## Modelos Prisma (29 en `schema.prisma`)
 
-`Profile` · `Client` · `ClientAccess` · `SocialConnection` · `OAuthState` · `Competitor` · `Reel` · `Transcription` · `Analysis` · `ChatMessage` · `ScrapeJob` · `Conversation` · `AIMessage` · `Task` · `ContentPiece` · `ContentTemplate` · `ICPProfile` · `BusinessBase` · `Idea` · `GuionTab` · `GuionItem` · `UserReel` · `Story` · `YouTubeVideo` · `AccountSnapshot` · `IncomeRecord`.
+`Profile` · `Client` (con `themeKey`) · `ClientAccess` · `SocialConnection` · `OAuthState` · `Competitor` · `Reel` · `Transcription` · `Analysis` · `ChatMessage` · `ScrapeJob` · `Conversation` · `AIMessage` · `Task` · `ContentPiece` · `ContentTemplate` · `ICPProfile` · `BusinessBase` · `Idea` · `GuionTab` · `GuionItem` · `UserReel` · `Story` · `YouTubeVideo` · `AccountSnapshot` · `IncomeRecord` · `TranscriptHistory` · `ContentResearchHistory` · `VideoFeedAccount`.
 
 **Antes de usar un modelo**: `grep -n "^model " prisma/schema.prisma` para confirmar.
 
@@ -157,7 +157,7 @@ grep -n "^model " prisma/schema.prisma        # modelos disponibles
 - **OAuth `redirect_uri`**: Meta / Google / TikTok registran la URL literal. Cambiar `app/api/social/[platform]/callback/` o `/api/auth/*` **requiere** actualizar el panel del proveedor antes del deploy.
 - **App Router 100%**: `grep` confirma 0 usos de `getServerSideProps`, `getStaticProps`, `next/router`, `pages/api`. `useRouter` viene de `next/navigation`.
 - **Next 15+ async APIs** (verificado en ≥5 handlers): `params` es `Promise<...>` → `await params`. `cookies()`, `headers()`, `draftMode()` también son async.
-- **Rate limit con dos shapes**: admin usa `rl.success`, analizador usa `rl.allowed`. Copiar código entre módulos silenciosamente rompe.
+- **Migration drift**: Supabase aplicó migraciones que se quedaron untracked en disco más de una vez. CI corre `npm run check:prisma-drift` (compara DB ↔ `prisma/migrations`) — si ves errores ahí, copiar las migraciones desde donde se aplicaron y commitearlas.
 
 ---
 

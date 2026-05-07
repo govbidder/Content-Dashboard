@@ -1,7 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
+import { Camera } from 'lucide-react'
 import { getDashboardStats } from '@/lib/mock-data/dashboard'
 import type { Period } from '@/lib/types'
 import { GreetingBlock } from './GreetingBlock'
@@ -20,6 +22,20 @@ export function HomeContent() {
   const [period, setPeriod] = useState<Period>(30)
   const s = getDashboardStats(period)
   const prefersReduced = useReducedMotion()
+  const [hasInstagramData, setHasInstagramData] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/me/global-stats')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled) setHasInstagramData(data !== null)
+      })
+      .catch(() => {
+        if (!cancelled) setHasInstagramData(false)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const fadeUp = (i: number) => ({
     initial: prefersReduced ? {} : { opacity: 0, y: 14 },
@@ -82,44 +98,77 @@ export function HomeContent() {
         />
       </motion.div>
 
-      <motion.div {...fadeUp(1)} className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-foreground)', opacity: 0.6 }}>
-          Rendimiento Instagram
-        </p>
-        <div className="relative flex items-center gap-1 p-1 rounded-xl"
-          style={{ backgroundColor: 'var(--muted)', border: '1px solid var(--border)' }}>
-          {PERIODS.map(({ label, value }) => (
-            <button
-              key={value}
-              onClick={() => setPeriod(value)}
-              className="relative text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer z-10"
-              style={{
-                color: period === value ? 'var(--accent-foreground)' : 'var(--muted-foreground)',
-                transition: 'color 150ms ease',
-              }}
+      {hasInstagramData === false && (
+        <motion.div {...fadeUp(1)}>
+          <div
+            className="rounded-xl p-6 flex flex-col items-center text-center gap-3"
+            style={{
+              backgroundColor: 'var(--card)',
+              border: '1px dashed var(--border)',
+            }}
+          >
+            <Camera size={28} style={{ color: 'var(--muted-foreground)' }} />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                Aún no hay datos de Instagram
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                Conectá tu cuenta para ver el rendimiento de tu contenido.
+              </p>
+            </div>
+            <Link
+              href="/instagram"
+              className="text-xs px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-90"
+              style={{ backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' }}
             >
-              {period === value && (
-                <motion.div
-                  layoutId="period-tab-pill"
-                  className="absolute inset-0 rounded-lg"
-                  style={{ backgroundColor: 'var(--accent)' }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-                />
-              )}
-              <span className="relative z-10">{label}</span>
-            </button>
-          ))}
-        </div>
-      </motion.div>
+              Conectar Instagram
+            </Link>
+          </div>
+        </motion.div>
+      )}
 
-      <motion.div {...fadeUp(2)}>
-        <StatGrid stats={s} />
-      </motion.div>
+      {hasInstagramData === true && (
+        <>
+          <motion.div {...fadeUp(1)} className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted-foreground)', opacity: 0.6 }}>
+              Rendimiento Instagram
+            </p>
+            <div className="relative flex items-center gap-1 p-1 rounded-xl"
+              style={{ backgroundColor: 'var(--muted)', border: '1px solid var(--border)' }}>
+              {PERIODS.map(({ label, value }) => (
+                <button
+                  key={value}
+                  onClick={() => setPeriod(value)}
+                  className="relative text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer z-10"
+                  style={{
+                    color: period === value ? 'var(--accent-foreground)' : 'var(--muted-foreground)',
+                    transition: 'color 150ms ease',
+                  }}
+                >
+                  {period === value && (
+                    <motion.div
+                      layoutId="period-tab-pill"
+                      className="absolute inset-0 rounded-lg"
+                      style={{ backgroundColor: 'var(--accent)' }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                    />
+                  )}
+                  <span className="relative z-10">{label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
 
-      <motion.div {...fadeUp(3)} className="flex flex-col xl:flex-row gap-6" style={{ alignItems: 'stretch' }}>
-        <PerformanceCharts stats={s} />
-        <QuickSummarySidebar stats={s} />
-      </motion.div>
+          <motion.div {...fadeUp(2)}>
+            <StatGrid stats={s} />
+          </motion.div>
+
+          <motion.div {...fadeUp(3)} className="flex flex-col xl:flex-row gap-6" style={{ alignItems: 'stretch' }}>
+            <PerformanceCharts stats={s} />
+            <QuickSummarySidebar stats={s} />
+          </motion.div>
+        </>
+      )}
     </div>
   )
 }

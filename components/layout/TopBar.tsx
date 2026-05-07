@@ -1,18 +1,38 @@
 'use client'
 
-import { useContext } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { Eye, Users, TrendingUp, Menu } from 'lucide-react'
 import { formatM, formatPercent } from '@/lib/utils/formatters'
-import { usePeriod } from '@/hooks/usePeriod'
-import { getGlobalStats } from '@/lib/mock-data/global'
 import { ThemeToggle } from './ThemeToggle'
 import { MobileSidebarContext } from './LayoutShell'
 import { ClientSwitcher } from './ClientSwitcher'
 
+interface GlobalStats {
+  followers: number
+  views: number
+  engagementRate: number
+}
+
 export function TopBar() {
-  const [period] = usePeriod()
-  const stats = getGlobalStats(period)
+  const [stats, setStats] = useState<GlobalStats | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const { open: openMobileSidebar } = useContext(MobileSidebarContext)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/me/global-stats')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: GlobalStats | null) => {
+        if (cancelled) return
+        setStats(data)
+        setLoaded(true)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLoaded(true)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <header
@@ -42,21 +62,26 @@ export function TopBar() {
         </div>
       </div>
 
-      {/* Global metrics — stagger slide-up on load */}
       <div className="hidden md:flex items-center gap-6">
         {[
-          { Icon: Eye,        label: 'VIEWS',    value: formatM(stats.views),              color: '#B08A4A', delay: '0ms'   },
-          { Icon: Users,      label: 'FOLLOWERS', value: formatM(stats.followers),          color: '#B08A4A', delay: '60ms'  },
-          { Icon: TrendingUp, label: 'ENG. RATE', value: formatPercent(stats.engagementRate), color: '#8A7A4A', delay: '120ms' },
-        ].map(({ Icon, label, value, color, delay }) => (
+          { Icon: Eye,        label: 'VIEWS',     value: stats ? formatM(stats.views)                : '—', delay: '0ms'   },
+          { Icon: Users,      label: 'FOLLOWERS', value: stats ? formatM(stats.followers)            : '—', delay: '60ms'  },
+          { Icon: TrendingUp, label: 'ENG. RATE', value: stats ? formatPercent(stats.engagementRate) : '—', delay: '120ms' },
+        ].map(({ Icon, label, value, delay }) => (
           <div
             key={label}
             className="flex items-center gap-2 animate-in fade-in slide-in-from-bottom-1 duration-300"
             style={{ animationDelay: delay, animationFillMode: 'both' }}
+            title={loaded && !stats ? 'Conectá una red social para ver tus stats' : undefined}
           >
-            <Icon size={14} style={{ color }} />
+            <Icon size={14} style={{ color: 'var(--muted-foreground)' }} />
             <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{label}</span>
-            <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--foreground)' }}>{value}</span>
+            <span
+              className="text-sm font-semibold tabular-nums"
+              style={{ color: stats ? 'var(--foreground)' : 'var(--muted-foreground)' }}
+            >
+              {value}
+            </span>
           </div>
         ))}
       </div>

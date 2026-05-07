@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "check:brand": "node scripts/check-brand-consistency.mjs",
     "check:claude-md": "node scripts/check-claude-md.mjs",
+    "check:prisma-drift": "node scripts/check-prisma-drift.mjs",
     "seed": "tsx scripts/seed-initial-clients.ts",
     "test": "jest",
     "test:watch": "jest --watch",

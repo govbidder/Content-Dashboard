@@ -39,6 +39,12 @@ jobs:
       - name: CLAUDE.md coherence
         run: npm run check:claude-md
 
+      - name: Prisma schema drift
+        run: npm run check:prisma-drift
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
       - name: Unit tests with coverage
         run: npm test -- --coverage --ci
 
