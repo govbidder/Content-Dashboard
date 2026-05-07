@@ -13,29 +13,20 @@ export async function GET(): Promise<NextResponse> {
   try {
     const { clientId } = await requireActiveClient()
 
-    const platforms = await db.accountSnapshot.findMany({
+    const snaps = await db.accountSnapshot.findMany({
       where: { clientId },
       orderBy: [{ platform: 'asc' }, { date: 'desc' }],
+      distinct: ['platform'],
+      select: { followers: true, impressions: true, engagementRate: true },
     })
 
-    if (platforms.length === 0) {
+    if (snaps.length === 0) {
       return NextResponse.json(null)
     }
 
-    const latestPerPlatform = new Map<string, (typeof platforms)[number]>()
-    for (const snap of platforms) {
-      if (!latestPerPlatform.has(snap.platform)) {
-        latestPerPlatform.set(snap.platform, snap)
-      }
-    }
-
-    const snaps = Array.from(latestPerPlatform.values())
     const followers = snaps.reduce((sum, s) => sum + s.followers, 0)
     const views = snaps.reduce((sum, s) => sum + s.impressions, 0)
-    const engagementRate =
-      snaps.length > 0
-        ? snaps.reduce((sum, s) => sum + s.engagementRate, 0) / snaps.length
-        : 0
+    const engagementRate = snaps.reduce((sum, s) => sum + s.engagementRate, 0) / snaps.length
 
     return NextResponse.json({ followers, views, engagementRate })
   } catch (err) {

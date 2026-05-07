@@ -1,14 +1,11 @@
 /**
  * /instagram/reels/[id]
  *
- * Server component: fetches the UserReel row (tenant-scoped) and renders a
- * minimal honest detail view using only real persisted fields (thumbnail,
- * caption, view/like/comment counts, published date, link to Instagram).
- *
- * The richer analytics view (engagement benchmarks, retention curve, best-day
- * chart) was previously built against `lib/mock-data/reel-detail.ts` with
- * fabricated numbers. That version lives in `ReelDetailContent.tsx` and stays
- * in the repo for re-enabling when Apify-based Instagram analytics are wired.
+ * Server component: fetches the UserReel row (tenant-scoped) and renders the
+ * detail view using only real persisted fields. The richer analytics view
+ * (engagement benchmarks, retention curve, best-day chart) is intentionally
+ * not implemented — it requires Apify/Instagram Analytics integration that
+ * doesn't exist yet.
  */
 
 import { notFound, redirect } from 'next/navigation'

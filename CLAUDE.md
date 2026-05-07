@@ -64,17 +64,17 @@ Path alias `@/*` → raíz del repo. Importar como `@/lib/db`.
 - `/api/competitors/[id]` y `/api/reels/[id]/{analyze,transcribe,chat,refresh-video-url}`
 - `/api/ai/{chat, conversations, conversations/[id]}` (Eternity AI — Anthropic SDK streaming, rate-limited 20/min)
 
-**UI que lee mocks** (`grep "lib/mock-data"` da 16+ archivos):
-- `/instagram` — los 5 tabs
-- `/ads` — KPIs, campaigns, creatives
-- `/tiktok` — KPIs, videos, demografía
-- `/youtube` UI — demografía + dashboards (aunque `/api/youtube/*` sí es real)
-- `components/home/HomeContent`
-- `components/layout/TopBar` (stats globales)
+**UI con datos demo** (gateado con `hasRealData` o disclaimer):
+- `/instagram` — los 5 tabs muestran demo + `DemoDataPill` cuando no hay `UserReel` real
+- `/youtube` Audiencia — demografía con disclaimer ("se activará con YouTube Analytics API")
+- `components/home/HomeContent` — bloque "Rendimiento Instagram" gateado en `/api/me/global-stats`
+- `components/layout/TopBar` (stats globales) — `—` placeholders cuando no hay `AccountSnapshot`
 
-**Placeholders (`ComingSoonBanner`)**: — (ninguno actualmente).
+**Placeholders honestos (`ComingSoonBanner`)**:
+- `/ads` (no existe backend Meta Ads / TikTok Ads)
+- `/tiktok` (no existe backend TikTok organic)
 
-**`/competidores` NO usa mocks** — lee de DB real (corrección de versiones anteriores de este archivo).
+**`/competidores` y `/instagram/reels/[id]` NO usan mocks** — leen de DB real.
 
 ---
 
@@ -95,20 +95,23 @@ app/
     social/[platform]/{connect,callback}/     # instagram | tiktok | youtube
     youtube/{sync,videos,channel-summary}/
   {instagram,contenido,bases,analizador,competidores,tareas,ads,tiktok,youtube}/page.tsx
+  ads/AdsContent.tsx · tiktok/TikTokContent.tsx  # ComingSoonBanner
   ai/page.tsx                                  # ComingSoonBanner
   admin/{page,users,clients}/page.tsx
   pending-approval/  ·  login/
 
 components/layout/{Sidebar,TopBar,ConditionalShell,ClientSwitcher,UserMenu,SettingsModal}.tsx
+components/shared/{ComingSoonBanner,EmptyState,ConnectButton,MetricBadge}.tsx
 hooks/{usePeriod,useTab,useSocialConnection,useInstagramData,useYouTubeData}.ts
 lib/
   supabase/{client,server,admin}.ts  ·  auth-user.ts  ·  auth-bootstrap.ts  ·  db.ts
+  · themes.ts · active-brand.ts                # tema por cliente (SSR + zod enum)
   utils/ratelimit.ts  ·  useLocalStorage.ts  ·  schemas/{analizador,copy,competidores}/
-  mock-data/                                  # Instagram/Ads/TikTok/YouTube UI (a eliminar)
+  mock-data/                                  # demo data para tabs Instagram/YouTube
   competidores/{active-jobs,resolve-competitor}.ts
 middleware.ts  ·  next.config.ts  ·  prisma/{schema.prisma,migrations/}
-scripts/{check-brand-consistency.mjs,seed-initial-clients.ts}
-__tests__/  ·  e2e/                           # 3 unit + 3 e2e
+scripts/{check-brand-consistency.mjs,check-prisma-drift.mjs,seed-initial-clients.ts}
+__tests__/  ·  e2e/                           # 15 unit suites · 180 tests · 3 e2e quarantined
 ```
 
 ---

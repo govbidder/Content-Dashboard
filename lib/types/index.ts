@@ -58,45 +58,6 @@ export interface Reel {
   isTrialReel: boolean
 }
 
-export interface ReelDetail extends Reel {
-  viewsEvolution: { date: string; views: number; cumulative: number }[]
-  viewsOrg: number
-  viewsTotal: number
-  reachOrg: number
-  reachTotal: number
-  interactions: number
-  watchTotal: string
-  viewsPaidDetail: number
-  reachPaid: number
-  imprPaid: number
-  watchProm: string
-  watchPromPercent: number
-  engagement: number
-  viewsReach: number
-  retention: number
-  savesViews: number
-  abandono: string
-  ctrPago: number
-  cpv: number
-  cpm: number
-  clicks: number
-  spend: number
-  benchmarkLikes: number
-  benchmarkSaves: number
-  benchmarkComments: number
-  benchmarkShares: number
-  viewsByDay: { day: string; views: number }[]
-  bestDay: string
-  bestDayViews: number
-  likesVsAvg: number
-  savesVsAvg: number
-  commentsVsAvg: number
-  sharesVsAvg: number
-  retentionEstimated: number
-  watchTimeSeconds: number
-  abandonSeconds: number
-}
-
 export interface Story {
   id: string
   thumbnail: string
@@ -133,18 +94,6 @@ export interface Competitor {
   postsPerWeek: number
   avgViews: number
   avgLikes: number
-}
-
-export interface ReferenceContent {
-  id: string
-  thumbnail: string
-  platform: string
-  username: string
-  views: number
-  category: string
-  tags: string[]
-  url: string
-  notes: string
 }
 
 // ─── Tareas ────────────────────────────────────────────────────────────────
