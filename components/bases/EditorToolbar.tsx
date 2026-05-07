@@ -117,20 +117,6 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       >
         <Redo size={14} />
       </ToolbarButton>
-
-      {/* AI button — disabled, coming soon */}
-      <div className="w-px h-4 mx-1 self-center" style={{ backgroundColor: 'var(--border)' }} />
-      <button
-        disabled
-        title="Próximamente"
-        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium opacity-40 cursor-not-allowed"
-        style={{ backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
-      >
-        ✦ Generar con IA
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#8E1F2F22', color: 'var(--accent)' }}>
-          Próximamente
-        </span>
-      </button>
     </div>
   )
 }

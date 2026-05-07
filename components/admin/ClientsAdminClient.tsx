@@ -11,6 +11,7 @@ type ClientRow = {
   id: string
   name: string
   slug: string
+  themeKey: string
   createdAt: string
   accessCount: number
 }

@@ -13,17 +13,17 @@ export async function GET(): Promise<NextResponse> {
     if (globalRole === 'PENDING') {
       return NextResponse.json({ clients: [] })
     }
-    let clients: { id: string; name: string; slug: string }[]
+    let clients: { id: string; name: string; slug: string; themeKey: string }[]
     if (globalRole === 'SUPER_ADMIN') {
       clients = await db.client.findMany({
         orderBy: { createdAt: 'asc' },
-        select: { id: true, name: true, slug: true },
+        select: { id: true, name: true, slug: true, themeKey: true },
       })
     } else {
       const rows = await db.clientAccess.findMany({
         where: { userId },
         orderBy: { createdAt: 'asc' },
-        include: { client: { select: { id: true, name: true, slug: true } } },
+        include: { client: { select: { id: true, name: true, slug: true, themeKey: true } } },
       })
       clients = rows.map((r) => r.client)
     }

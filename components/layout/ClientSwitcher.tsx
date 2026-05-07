@@ -35,8 +35,14 @@ export function ClientSwitcher() {
         const body = await res.text().catch(() => '')
         throw new Error(`Error ${res.status}${body ? `: ${body.slice(0, 120)}` : ''}`)
       }
-      // Refresh context first (so downstream consumers see the new activeClientId),
-      // then hard reload so server components re-fetch with the new cookie.
+      const next = clients.find((c) => c.id === id)
+      if (next?.themeKey) {
+        const html = document.documentElement
+        Array.from(html.classList).forEach((c) => {
+          if (c.startsWith('brand-')) html.classList.remove(c)
+        })
+        html.classList.add(`brand-${next.themeKey}`)
+      }
       await refetch()
       window.location.reload()
     } catch (err) {

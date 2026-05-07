@@ -18,6 +18,7 @@ export interface ClientOpt {
   id: string
   name: string
   slug: string
+  themeKey: string
 }
 
 interface AuthContextValue {

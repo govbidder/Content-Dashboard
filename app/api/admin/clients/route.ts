@@ -29,6 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         id: c.id,
         name: c.name,
         slug: c.slug,
+        themeKey: c.themeKey,
         createdAt: c.createdAt,
         accessCount: c._count.accesses,
       })),
@@ -58,14 +59,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { name } = parsed.data
+  const { name, themeKey } = parsed.data
   const slug = parsed.data.slug ?? slugify(name)
   if (!slug) {
     return NextResponse.json({ error: 'Could not derive slug from name' }, { status: 400 })
   }
 
   try {
-    const client = await db.client.create({ data: { name, slug } })
+    const client = await db.client.create({
+      data: { name, slug, ...(themeKey ? { themeKey } : {}) },
+    })
     return NextResponse.json({ client }, { status: 201 })
   } catch (err: unknown) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

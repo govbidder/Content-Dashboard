@@ -5,7 +5,12 @@ import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
 import { X, Loader2 } from 'lucide-react'
 
-type ClientRow = { id: string; name: string; slug: string }
+type ClientRow = { id: string; name: string; slug: string; themeKey?: string }
+
+const THEME_OPTIONS = [
+  { value: 'eternity', label: 'Eternity (rojo + ivory)' },
+  { value: 'govbidder', label: 'Govbidder (rojo + navy, SaaS)' },
+] as const
 
 interface Props {
   editing: ClientRow | null
@@ -17,6 +22,7 @@ export function ClientFormModal({ editing, onClose, onSaved }: Props) {
   const [mounted, setMounted] = useState(false)
   const [name, setName] = useState(editing?.name ?? '')
   const [slug, setSlug] = useState(editing?.slug ?? '')
+  const [themeKey, setThemeKey] = useState(editing?.themeKey ?? 'eternity')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -33,8 +39,9 @@ export function ClientFormModal({ editing, onClose, onSaved }: Props) {
     if (!name.trim()) { setError('El nombre es obligatorio'); return }
     setBusy(true)
     try {
-      const body: { name: string; slug?: string } = { name: name.trim() }
+      const body: { name: string; slug?: string; themeKey?: string } = { name: name.trim() }
       if (slug.trim()) body.slug = slug.trim()
+      body.themeKey = themeKey
       const res = editing
         ? await fetch(`/api/admin/clients/${editing.id}`, {
             method: 'PATCH',
@@ -119,6 +126,25 @@ export function ClientFormModal({ editing, onClose, onSaved }: Props) {
                 border: '1px solid var(--border)',
               }}
             />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium mb-1 block" style={{ color: 'var(--muted-foreground)' }}>
+              Tema visual
+            </label>
+            <select
+              value={themeKey}
+              onChange={(e) => setThemeKey(e.target.value)}
+              className="w-full text-xs rounded-lg px-3 py-2 outline-none cursor-pointer"
+              style={{
+                backgroundColor: 'var(--muted)',
+                color: 'var(--foreground)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              {THEME_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
           {error && (
             <p className="text-xs" style={{ color: '#E05252' }}>{error}</p>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -74,6 +74,7 @@ export function KanbanBoard() {
     task?: Task | null
     defaultColumnId?: TaskColumnId
   }>({ open: false })
+  const dragSnapshotRef = useRef<Task[] | null>(null)
 
   // ── Initial fetch ────────────────────────────────────────────────────────
 
@@ -110,6 +111,7 @@ export function KanbanBoard() {
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id)
     setActiveTask(task ?? null)
+    dragSnapshotRef.current = tasks
   }
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -133,12 +135,22 @@ export function KanbanBoard() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     setActiveTask(null)
-    if (!over) return
+
+    const snapshot = dragSnapshotRef.current
+    dragSnapshotRef.current = null
+
+    if (!over) {
+      if (snapshot) setTasks(snapshot)
+      return
+    }
 
     const activeId = active.id as string
     const overId = over.id as string
 
-    if (activeId === overId) return
+    if (activeId === overId) {
+      if (snapshot) setTasks(snapshot)
+      return
+    }
 
     setTasks((prev) => {
       const activeTask = prev.find((t) => t.id === activeId)
@@ -165,17 +177,27 @@ export function KanbanBoard() {
         updated = [...otherTasks, ...reordered]
       }
 
-      // Persist each changed task to the API (fire-and-forget, toast on error)
+      const baseline = snapshot ?? prev
       const changedTasks = updated.filter((t) => {
-        const orig = prev.find((p) => p.id === t.id)
+        const orig = baseline.find((p) => p.id === t.id)
         return orig && (orig.columnId !== t.columnId || orig.order !== t.order)
       })
-      for (const t of changedTasks) {
-        fetch(`/api/tasks/${t.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ columnId: t.columnId, order: t.order }),
-        }).catch(() => toast.error('Error al guardar orden de tareas'))
+
+      if (changedTasks.length > 0) {
+        Promise.all(
+          changedTasks.map((t) =>
+            fetch(`/api/tasks/${t.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ columnId: t.columnId, order: t.order }),
+            }).then((r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`)
+            }),
+          ),
+        ).catch(() => {
+          if (snapshot) setTasks(snapshot)
+          toast.error('No se pudo guardar — se revirtieron los cambios')
+        })
       }
 
       return updated

@@ -40,6 +40,7 @@ model Client {
   id            String           @id @default(cuid())
   name          String
   slug          String           @unique
+  themeKey      String           @default("eternity")
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   accesses      ClientAccess[]
@@ -535,4 +536,52 @@ model IncomeRecord {
 
   @@index([clientId, date])
   @@index([clientId, source])
+}
+
+model TranscriptHistory {
+  id          String   @id @default(cuid())
+  clientId    String
+  createdBy   String?
+  url         String
+  platform    String
+  title       String?
+  creator     String?
+  duration    String?
+  thumbnail   String?
+  transcript  String?
+  summary     String?
+  createdAt   DateTime @default(now())
+
+  @@index([clientId, createdAt])
+}
+
+model ContentResearchHistory {
+  id            String   @id @default(cuid())
+  clientId      String
+  createdBy     String?
+  platform      String
+  channelUrl    String
+  channelName   String?
+  channelAvatar String?
+  timeframeDays Int      @default(30)
+  videos        Json     @default("[]")
+  createdAt     DateTime @default(now())
+
+  @@index([clientId, createdAt])
+}
+
+model VideoFeedAccount {
+  id            String   @id @default(cuid())
+  clientId      String
+  createdBy     String?
+  platform      String
+  channelUrl    String
+  channelName   String?
+  channelAvatar String?
+  posts         Json     @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([clientId, platform])
+  @@index([clientId])
 }

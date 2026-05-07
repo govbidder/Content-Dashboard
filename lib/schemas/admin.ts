@@ -17,14 +17,19 @@ export const GrantClientAccessSchema = z.object({
 // slug — lowercase letters, digits, hyphens
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+export const ThemeKeySchema = z.enum(['eternity', 'govbidder'])
+export type ThemeKey = z.infer<typeof ThemeKeySchema>
+
 export const CreateClientSchema = z.object({
   name: z.string().min(1).max(120),
   slug: z.string().regex(slugRegex).min(1).max(120).optional(),
+  themeKey: ThemeKeySchema.optional(),
 })
 
 export const UpdateClientSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   slug: z.string().regex(slugRegex).min(1).max(120).optional(),
+  themeKey: ThemeKeySchema.optional(),
 })
 
 export const SetActiveClientSchema = z.object({
