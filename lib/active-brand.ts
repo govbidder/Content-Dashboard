@@ -3,14 +3,10 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import { db as prisma } from '@/lib/db'
 import { ACTIVE_CLIENT_COOKIE } from '@/lib/auth-user'
+import { DEFAULT_THEME_KEY, isValidThemeKey, type ThemeKey } from '@/lib/themes'
 
-export const VALID_THEME_KEYS = ['eternity', 'govbidder'] as const
-export type ThemeKey = (typeof VALID_THEME_KEYS)[number]
-export const DEFAULT_THEME_KEY: ThemeKey = 'eternity'
-
-export function isValidThemeKey(key: unknown): key is ThemeKey {
-  return typeof key === 'string' && (VALID_THEME_KEYS as readonly string[]).includes(key)
-}
+export type { ThemeKey } from '@/lib/themes'
+export { VALID_THEME_KEYS, DEFAULT_THEME_KEY, isValidThemeKey } from '@/lib/themes'
 
 export async function getActiveThemeKey(): Promise<ThemeKey> {
   try {
