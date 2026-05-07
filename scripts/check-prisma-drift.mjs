@@ -12,8 +12,11 @@
 import { execFileSync } from 'node:child_process'
 
 if (!process.env.DATABASE_URL) {
-  console.error('✗ DATABASE_URL not set — cannot check drift.')
-  process.exit(2)
+  console.warn(
+    '::warning::DATABASE_URL not set — skipping Prisma drift check. ' +
+      'Configure DATABASE_URL + DIRECT_URL as repo secrets to enable.',
+  )
+  process.exit(0)
 }
 
 let output = ''
