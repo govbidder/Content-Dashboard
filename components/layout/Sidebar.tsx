@@ -73,7 +73,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Resumen', href: '/admin', icon: Shield },
       { label: 'Usuarios', href: '/admin/users', icon: UserCog },
-      { label: 'Clientes', href: '/admin/clients', icon: Building2 },
+      { label: 'Temas', href: '/admin/clients', icon: Building2 },
       { label: 'Discovery', href: '/discovery', icon: ClipboardList },
     ],
   },

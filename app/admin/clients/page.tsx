@@ -9,8 +9,8 @@ export default function AdminClientsPage() {
     <div className="page-shell" style={{ maxWidth: '64rem' }}>
       <PageHeader
         eyebrow="Admin"
-        title="Clientes"
-        description="Creá, editá y eliminá espacios de trabajo (tenants)."
+        title="Temas"
+        description="Creá, editá y eliminá temas visuales del dashboard."
         icon={Building2}
       />
       <ClientsAdminClient />
