@@ -236,10 +236,10 @@ async function fetchFromInnertubeClient(
 }
 
 // Embedded-player clients that work from cloud IPs (no 400).
-// TVHTML5_SIMPLY_EMBEDDED: doesn't expose ASR captions.
-// WEB_EMBEDDED_PLAYER: web variant — same key, may expose ASR.
-// TVHTML5 (non-simplified): TV variant with broader caption access.
-const INNERTUBE_CLIENTS: InnertubeClientConfig[] = [
+// TVHTML5_SIMPLY_EMBEDDED and WEB_EMBEDDED are the only two confirmed to
+// not get blocked. TVHTML5 (non-simplified) returns login_required from
+// cloud IPs for many videos — removed.
+const INNERTUBE_PLAYER_CLIENTS: InnertubeClientConfig[] = [
   {
     clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
     clientVersion: '2.0',
@@ -250,27 +250,120 @@ const INNERTUBE_CLIENTS: InnertubeClientConfig[] = [
     clientVersion: '2.20210721.00.00',
     key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
   },
-  {
-    clientName: 'TVHTML5',
-    clientVersion: '7.20210224.00.00',
-    key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
-  },
 ]
 
-async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptResult> {
-  let lastResult: YouTubeTranscriptResult = { transcript: null, provider: 'watch_page', reason: 'no_clients' }
+// Encode videoId as a minimal protobuf for /youtubei/v1/get_transcript.
+// Wire format: field 1, type 2 (length-delimited) = 0x0A + length byte + bytes.
+function encodeTranscriptParams(videoId: string): string {
+  const id = new TextEncoder().encode(videoId)
+  const proto = new Uint8Array([0x0a, id.length, ...id])
+  return btoa(String.fromCharCode(...proto))
+}
 
-  for (const cfg of INNERTUBE_CLIENTS) {
+interface GetTranscriptSegment {
+  snippet?: { runs?: Array<{ text?: string }> }
+}
+interface GetTranscriptResponse {
+  actions?: Array<{
+    updateEngagementPanelAction?: {
+      content?: {
+        transcriptRenderer?: {
+          content?: {
+            transcriptSearchPanelRenderer?: {
+              body?: {
+                transcriptSegmentListRenderer?: {
+                  initialSegments?: Array<{
+                    transcriptSegmentRenderer?: GetTranscriptSegment
+                  }>
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }>
+}
+
+// Secondary strategy: /youtubei/v1/get_transcript — the endpoint YouTube's
+// own UI uses for the "Show transcript" button. Works for ASR captions that
+// the /player endpoint doesn't expose in embedded contexts.
+async function fetchFromGetTranscript(videoId: string): Promise<YouTubeTranscriptResult> {
+  try {
+    const params = encodeTranscriptParams(videoId)
+    const body = {
+      params,
+      context: {
+        client: {
+          clientName: 'WEB',
+          clientVersion: '2.20240101.00.00',
+        },
+      },
+    }
+
+    const res = await fetch(
+      'https://www.youtube.com/youtubei/v1/get_transcript?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(20_000),
+      },
+    )
+
+    if (!res.ok) {
+      return { transcript: null, provider: 'watch_page', reason: `get_transcript_http_${res.status}` }
+    }
+
+    const data = (await res.json()) as GetTranscriptResponse
+    const segments =
+      data?.actions?.[0]
+        ?.updateEngagementPanelAction?.content
+        ?.transcriptRenderer?.content
+        ?.transcriptSearchPanelRenderer?.body
+        ?.transcriptSegmentListRenderer?.initialSegments ?? []
+
+    if (!segments.length) {
+      return { transcript: null, provider: 'watch_page', reason: 'get_transcript_no_segments' }
+    }
+
+    const text = segments
+      .map((s) =>
+        s.transcriptSegmentRenderer?.snippet?.runs
+          ?.map((r) => r.text ?? '')
+          .join('') ?? '',
+      )
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    if (!text) {
+      return { transcript: null, provider: 'watch_page', reason: 'get_transcript_empty' }
+    }
+
+    return { transcript: text, provider: 'watch_page' }
+  } catch (err) {
+    return {
+      transcript: null,
+      provider: 'watch_page',
+      reason: `get_transcript_exception:${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+}
+
+async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptResult> {
+  // Pass 1: player endpoint via embedded clients (no caption tracks = continue).
+  for (const cfg of INNERTUBE_PLAYER_CLIENTS) {
     const result = await fetchFromInnertubeClient(videoId, cfg)
     if (result.transcript) return result
-
-    lastResult = result
-    if (result.reason === 'login_required' || result.reason === 'age_restricted') break
-
+    if (result.reason === 'age_restricted') return result
     console.warn(`[transcript] ${cfg.clientName} ${videoId} → ${result.reason}`)
   }
 
-  return lastResult
+  // Pass 2: get_transcript endpoint — works for ASR captions unavailable via /player.
+  console.warn(`[transcript] player clients exhausted for ${videoId}, trying get_transcript`)
+  return fetchFromGetTranscript(videoId)
 }
 
 // Fallback: scrape the watch page directly (works locally, blocked on Vercel).
@@ -317,11 +410,77 @@ async function fetchFromWatchPage(videoId: string): Promise<YouTubeTranscriptRes
   }
 }
 
+// ─── Apify youtube-transcript actor (primary) ────────────────────────────────
+
+async function fetchFromApify(videoId: string): Promise<YouTubeTranscriptResult> {
+  const token = process.env.APIFY_API_TOKEN
+  if (!token) return { transcript: null, provider: 'watch_page', reason: 'apify_token_missing' }
+
+  try {
+    const res = await fetch(
+      `https://api.apify.com/v2/acts/automation-lab~youtube-transcript/run-sync-get-dataset-items?token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          urls: [`https://www.youtube.com/watch?v=${videoId}`],
+          language: 'es',
+          includeAutoGenerated: true,
+          mergeSegments: true,
+        }),
+        signal: AbortSignal.timeout(120_000),
+      },
+    )
+
+    if (!res.ok) {
+      return { transcript: null, provider: 'watch_page', reason: `apify_http_${res.status}` }
+    }
+
+    const data = (await res.json()) as Array<Record<string, unknown>>
+    const item = data?.[0] ?? null
+    if (!item) return { transcript: null, provider: 'watch_page', reason: 'apify_empty' }
+
+    const transcript = [
+      item.fullText,
+      item.transcript,
+      item.text,
+      item.captionsText,
+      item.subtitlesText,
+      Array.isArray(item.segments) ? item.segments.map((s: Record<string, unknown>) => s.text).filter(Boolean).join(' ') : null,
+      Array.isArray(item.captions) ? item.captions.map((c: Record<string, unknown>) => c.text).filter(Boolean).join(' ') : null,
+    ].find((v): v is string => typeof v === 'string' && v.trim().length > 0)?.trim() ?? null
+
+    if (!transcript) {
+      const err = typeof item.error === 'string' ? item.error.toLowerCase() : ''
+      const reason = err.includes('login') || err.includes('age') || err.includes('private')
+        ? 'login_required'
+        : 'apify_no_text'
+      return { transcript: null, provider: 'watch_page', reason }
+    }
+
+    return { transcript, provider: 'watch_page' }
+  } catch (err) {
+    return {
+      transcript: null,
+      provider: 'watch_page',
+      reason: `apify_exception:${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+}
+
 /**
- * Get a YouTube transcript. Tries Innertube (ANDROID) first — works from cloud
- * IPs. Falls back to watch-page scrape if Innertube returns no captions.
+ * Get a YouTube transcript.
+ * Strategy:
+ *   1. Apify automation-lab~youtube-transcript — handles ASR from cloud IPs.
+ *   2. Innertube embedded clients (TVHTML5, WEB_EMBEDDED) + get_transcript endpoint.
+ *   3. Watch-page scrape fallback (works locally, blocked on Vercel).
  */
 export async function getYouTubeTranscript(videoId: string): Promise<YouTubeTranscriptResult> {
+  const apify = await fetchFromApify(videoId)
+  if (apify.transcript) return apify
+  if (apify.reason === 'login_required') return apify
+
+  console.warn(`[transcript] Apify ${videoId} → ${apify.reason}, trying Innertube`)
   const innertube = await fetchFromInnertube(videoId)
   if (innertube.transcript) return innertube
 
