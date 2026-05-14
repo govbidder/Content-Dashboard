@@ -19,7 +19,7 @@ export async function transcribeFromUrl(audioUrl: string): Promise<Transcription
 
   const transcript = await client.transcripts.transcribe({
     audio_url: audioUrl,
-    speech_model: 'nano',
+    speech_models: ['nano'],
     language_detection: true,
   })
 

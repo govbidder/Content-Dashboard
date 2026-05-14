@@ -52,9 +52,23 @@ interface ResearchRow {
 // `formatDate` (lib/utils/formatDate) handles locale + Intl options.
 const dateOpts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
 
+// Instagram CDN URLs embed an `oe` (expiry) param as a hex Unix timestamp.
+// Checking it up-front avoids broken-image flickers in history rows.
+function isInstagramCdnExpired(url: string | null): boolean {
+  if (!url) return false
+  if (!url.includes('cdninstagram.com') && !url.includes('fbcdn.net')) return false
+  try {
+    const oe = new URL(url).searchParams.get('oe')
+    if (!oe) return false
+    return Date.now() > parseInt(oe, 16) * 1000
+  } catch {
+    return false
+  }
+}
+
 function VideoCard({ video, platform, rank }: { video: ResearchVideo; platform: Platform; rank: number }) {
   const [thumbError, setThumbError] = useState(false)
-  const showImage = !!video.thumbnail && !thumbError
+  const showImage = !!video.thumbnail && !thumbError && !isInstagramCdnExpired(video.thumbnail)
 
   return (
     <div
