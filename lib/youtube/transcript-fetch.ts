@@ -168,31 +168,39 @@ async function downloadCaptionTrack(baseUrl: string): Promise<YouTubeTranscriptR
   return { transcript, provider: 'watch_page' }
 }
 
-// Primary strategy: YouTube Innertube API with TVHTML5_SIMPLY_EMBEDDED_PLAYER context.
-// Minimal payload — extra fields (thirdParty, hl, gl) can trigger 400 from cloud IPs.
-// Key AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8 is the public TVHTML5 Innertube key.
-async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptResult> {
+interface InnertubeClientConfig {
+  clientName: string
+  clientVersion: string
+  key: string
+  userAgent?: string
+}
+
+async function fetchFromInnertubeClient(
+  videoId: string,
+  cfg: InnertubeClientConfig,
+): Promise<YouTubeTranscriptResult> {
   try {
     const body = {
       videoId,
       context: {
         client: {
-          clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
-          clientVersion: '2.0',
+          clientName: cfg.clientName,
+          clientVersion: cfg.clientVersion,
         },
       },
     }
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (cfg.userAgent) headers['User-Agent'] = cfg.userAgent
+
     const res = await fetch(
-      'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+      `https://www.youtube.com/youtubei/v1/player?key=${cfg.key}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(20_000),
-      }
+      },
     )
 
     if (!res.ok) {
@@ -222,9 +230,34 @@ async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptRes
     return {
       transcript: null,
       provider: 'watch_page',
-      reason: 'innertube_exception:' + (err instanceof Error ? err.message : String(err)),
+      reason: `innertube_exception:${err instanceof Error ? err.message : String(err)}`,
     }
   }
+}
+
+// TVHTML5_SIMPLY_EMBEDDED_PLAYER — works from cloud IPs, but doesn't expose ASR captions.
+const INNERTUBE_TVHTML5: InnertubeClientConfig = {
+  clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
+  clientVersion: '2.0',
+  key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+}
+
+// IOS client — also works from cloud IPs and exposes ASR/auto-generated captions.
+const INNERTUBE_IOS: InnertubeClientConfig = {
+  clientName: 'IOS',
+  clientVersion: '19.09.3',
+  key: 'AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc',
+  userAgent: 'com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)',
+}
+
+async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptResult> {
+  const tv = await fetchFromInnertubeClient(videoId, INNERTUBE_TVHTML5)
+  if (tv.transcript) return tv
+
+  if (tv.reason === 'login_required' || tv.reason === 'age_restricted') return tv
+
+  console.warn(`[transcript] TVHTML5 ${videoId} → ${tv.reason}, trying IOS client`)
+  return fetchFromInnertubeClient(videoId, INNERTUBE_IOS)
 }
 
 // Fallback: scrape the watch page directly (works locally, blocked on Vercel).
