@@ -1,15 +1,14 @@
 /**
- * YouTube transcript fetcher — caption-track scrape with optional Apify fallback.
+ * YouTube transcript fetcher — Innertube API primary, watch-page fallback.
  *
- * Strategy (matches Smart-Scale's `getYouTubeTranscript` flow):
- *   1. If APIFY_API_TOKEN is set, try the `automation-lab~youtube-transcript`
- *      actor which handles login walls + age-restricted videos better.
- *   2. Fall back to scraping `youtube.com/watch?v=`, extracting
- *      `ytInitialPlayerResponse`, picking a caption track (preferring English)
- *      and parsing its srv3 XML.
+ * Strategy:
+ *   1. POST to YouTube's internal Innertube API with ANDROID client context.
+ *      This endpoint works from cloud/server IPs and does not trigger bot
+ *      detection the way the watch page does.
+ *   2. Fall back to scraping `youtube.com/watch?v=` (works on local IPs,
+ *      fails on Vercel with LOGIN_REQUIRED for most videos).
  *
- * No YouTube Data API key required for transcript — only for metadata
- * (see `getYouTubeMetadata`, which is optional).
+ * No YouTube Data API key required for transcript — only for metadata.
  */
 
 export interface YouTubeTranscriptResult {
@@ -130,8 +129,10 @@ function extractPlayerResponse(html: string): PlayerResponse | null {
 
 // ─── Transcript fetcher ───────────────────────────────────────────────────────
 
-// Headers that mimic a real browser to avoid YouTube's bot detection on cloud IPs.
-// The CONSENT cookie bypasses the GDPR consent wall that YouTube shows to server IPs.
+// Public Innertube API key (embedded in YouTube's own web/Android clients).
+const INNERTUBE_KEY = 'AIzaSyA8eiZmM1fanX9Dz5M9NuLLZFQb1ISFjFQ'
+
+// Reused for both Innertube caption downloads and watch-page fallback.
 const YT_BROWSER_HEADERS: Record<string, string> = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -142,6 +143,100 @@ const YT_BROWSER_HEADERS: Record<string, string> = {
   'Cookie': 'CONSENT=YES+cb; SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpeF8yMDIzMDkyOC4xXzAxJzAuNzI2',
 }
 
+function pickCaptionTrack(tracks: Array<{ baseUrl?: string; languageCode?: string; kind?: string }>) {
+  return (
+    tracks.find((t) => !t.kind && t.languageCode === 'es') ??
+    tracks.find((t) => !t.kind && t.languageCode?.startsWith('es')) ??
+    tracks.find((t) => !t.kind && t.languageCode === 'en') ??
+    tracks.find((t) => !t.kind) ??
+    tracks.find((t) => t.languageCode === 'es') ??
+    tracks[0]
+  )
+}
+
+async function downloadCaptionTrack(baseUrl: string): Promise<YouTubeTranscriptResult> {
+  const captionUrl = baseUrl.includes('fmt=') ? baseUrl : `${baseUrl}&fmt=srv3`
+  const capRes = await fetch(captionUrl, {
+    headers: YT_BROWSER_HEADERS,
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!capRes.ok) {
+    return { transcript: null, provider: 'watch_page', reason: `caption_http_${capRes.status}` }
+  }
+  const xml = await capRes.text()
+  const transcript = parseCaptionXml(xml)
+  if (!transcript) {
+    return { transcript: null, provider: 'watch_page', reason: 'caption_parse_failed' }
+  }
+  return { transcript, provider: 'watch_page' }
+}
+
+// Primary strategy: YouTube Innertube API with ANDROID client context.
+// Works from cloud/server IPs — avoids the LOGIN_REQUIRED bot detection
+// that the watch-page scrape triggers on Vercel's IP range.
+async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptResult> {
+  try {
+    const body = {
+      videoId,
+      context: {
+        client: {
+          clientName: 'ANDROID',
+          clientVersion: '19.09.37',
+          androidSdkVersion: 30,
+          hl: 'es',
+          gl: 'AR',
+        },
+      },
+    }
+
+    const res = await fetch(
+      `https://www.youtube.com/youtubei/v1/player?key=${INNERTUBE_KEY}&prettyPrint=false`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+          'X-YouTube-Client-Name': '3',
+          'X-YouTube-Client-Version': '19.09.37',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(20_000),
+      }
+    )
+
+    if (!res.ok) {
+      return { transcript: null, provider: 'watch_page', reason: `innertube_http_${res.status}` }
+    }
+
+    const player = (await res.json()) as PlayerResponse
+    const status = player?.playabilityStatus?.status
+    const tracks = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? []
+
+    if (!tracks.length) {
+      const reason =
+        status === 'LOGIN_REQUIRED' ? 'login_required'
+        : status === 'AGE_CHECK_REQUIRED' ? 'age_restricted'
+        : !player ? 'player_response_missing'
+        : 'no_caption_tracks'
+      return { transcript: null, provider: 'watch_page', reason }
+    }
+
+    const preferred = pickCaptionTrack(tracks)
+    if (!preferred?.baseUrl) {
+      return { transcript: null, provider: 'watch_page', reason: 'caption_track_no_base_url' }
+    }
+
+    return await downloadCaptionTrack(preferred.baseUrl)
+  } catch (err) {
+    return {
+      transcript: null,
+      provider: 'watch_page',
+      reason: 'innertube_exception:' + (err instanceof Error ? err.message : String(err)),
+    }
+  }
+}
+
+// Fallback: scrape the watch page directly (works locally, blocked on Vercel).
 async function fetchFromWatchPage(videoId: string): Promise<YouTubeTranscriptResult> {
   try {
     const watchRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
@@ -153,7 +248,6 @@ async function fetchFromWatchPage(videoId: string): Promise<YouTubeTranscriptRes
     }
     const html = await watchRes.text()
 
-    // Detect consent/verification redirect — YouTube serves these to cloud IPs
     if (html.includes('consent.youtube.com') || html.includes('before you continue')) {
       return { transcript: null, provider: 'watch_page', reason: 'consent_wall' }
     }
@@ -165,42 +259,18 @@ async function fetchFromWatchPage(videoId: string): Promise<YouTubeTranscriptRes
     if (!tracks.length) {
       const reason =
         status === 'LOGIN_REQUIRED' ? 'login_required'
-        : status === 'AGE_CHECK_REQUIRED' ? 'login_required'
+        : status === 'AGE_CHECK_REQUIRED' ? 'age_restricted'
         : !playerResponse ? 'player_response_missing'
         : 'no_caption_tracks'
       return { transcript: null, provider: 'watch_page', reason }
     }
 
-    // Prefer the video's native language (non-ASR first), then any track
-    const preferred =
-      tracks.find((t) => !t.kind && t.languageCode === 'es') ??
-      tracks.find((t) => !t.kind && t.languageCode?.startsWith('es')) ??
-      tracks.find((t) => !t.kind && t.languageCode === 'en') ??
-      tracks.find((t) => !t.kind) ??
-      tracks.find((t) => t.languageCode === 'es') ??
-      tracks[0]
-
+    const preferred = pickCaptionTrack(tracks)
     if (!preferred?.baseUrl) {
       return { transcript: null, provider: 'watch_page', reason: 'caption_track_no_base_url' }
     }
 
-    const captionUrl = preferred.baseUrl.includes('fmt=')
-      ? preferred.baseUrl
-      : `${preferred.baseUrl}&fmt=srv3`
-
-    const capRes = await fetch(captionUrl, {
-      headers: YT_BROWSER_HEADERS,
-      signal: AbortSignal.timeout(20_000),
-    })
-    if (!capRes.ok) {
-      return { transcript: null, provider: 'watch_page', reason: `caption_http_${capRes.status}` }
-    }
-    const xml = await capRes.text()
-    const transcript = parseCaptionXml(xml)
-    if (!transcript) {
-      return { transcript: null, provider: 'watch_page', reason: 'caption_parse_failed' }
-    }
-    return { transcript, provider: 'watch_page' }
+    return await downloadCaptionTrack(preferred.baseUrl)
   } catch (err) {
     return {
       transcript: null,
@@ -211,15 +281,19 @@ async function fetchFromWatchPage(videoId: string): Promise<YouTubeTranscriptRes
 }
 
 /**
- * Get a YouTube transcript by scraping the watch page caption tracks.
- * Returns transcript=null if no captions are available or the request is blocked.
+ * Get a YouTube transcript. Tries Innertube (ANDROID) first — works from cloud
+ * IPs. Falls back to watch-page scrape if Innertube returns no captions.
  */
 export async function getYouTubeTranscript(videoId: string): Promise<YouTubeTranscriptResult> {
-  const result = await fetchFromWatchPage(videoId)
-  if (!result.transcript) {
-    console.warn(`[transcript] YouTube ${videoId} failed — reason: ${result.reason}`)
+  const innertube = await fetchFromInnertube(videoId)
+  if (innertube.transcript) return innertube
+
+  console.warn(`[transcript] Innertube ${videoId} failed (${innertube.reason}) — trying watch page`)
+  const watchPage = await fetchFromWatchPage(videoId)
+  if (!watchPage.transcript) {
+    console.warn(`[transcript] YouTube ${videoId} failed — reason: ${watchPage.reason}`)
   }
-  return result
+  return watchPage
 }
 
 /**
