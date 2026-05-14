@@ -11,6 +11,13 @@ import { useInstagramDataContext } from '@/components/instagram/InstagramDataCon
 import { userReelToView } from '@/lib/instagram/to-reel-view'
 import { EmptyState } from '@/components/shared/EmptyState'
 
+const _now = new Date()
+const EMPTY_CHART_DATA = Array.from({ length: 7 }, (_, i) => ({
+  date: new Date(_now.getTime() - (6 - i) * 86400000).toISOString().slice(0, 10),
+  impressions: 0,
+  reach: 0,
+}))
+
 export function DashboardTab() {
   const [period] = usePeriod()
   void period
@@ -39,11 +46,6 @@ export function DashboardTab() {
   const displayProfileVisits = snapshot?.profileVisits ?? 0
   const displayNewFollowers = snapshot?.newFollowers ?? 0
 
-  const emptyChartData = Array.from({ length: 7 }, (_, i) => ({
-    date: new Date(Date.now() - (6 - i) * 86400000).toISOString().slice(0, 10),
-    impressions: 0,
-    reach: 0,
-  }))
 
   return (
     <div className="space-y-5">
@@ -51,7 +53,7 @@ export function DashboardTab() {
       <div className="grid grid-cols-3 gap-4" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
         <div className="col-span-2" style={{ minHeight: 280 }}>
           <VisitasChart
-            data={emptyChartData}
+            data={EMPTY_CHART_DATA}
             impressions={displayImpressions}
             avgDailyReach={displayAvgDailyReach}
             change={0}

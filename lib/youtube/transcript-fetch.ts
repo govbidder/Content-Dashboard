@@ -129,10 +129,7 @@ function extractPlayerResponse(html: string): PlayerResponse | null {
 
 // ─── Transcript fetcher ───────────────────────────────────────────────────────
 
-// Public Innertube API key (embedded in YouTube's own web/Android clients).
-const INNERTUBE_KEY = 'AIzaSyA8eiZmM1fanX9Dz5M9NuLLZFQb1ISFjFQ'
-
-// Reused for both Innertube caption downloads and watch-page fallback.
+// Caption download headers — used for both Innertube and watch-page fallback.
 const YT_BROWSER_HEADERS: Record<string, string> = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -171,33 +168,37 @@ async function downloadCaptionTrack(baseUrl: string): Promise<YouTubeTranscriptR
   return { transcript, provider: 'watch_page' }
 }
 
-// Primary strategy: YouTube Innertube API with ANDROID client context.
-// Works from cloud/server IPs — avoids the LOGIN_REQUIRED bot detection
-// that the watch-page scrape triggers on Vercel's IP range.
+// Primary strategy: YouTube Innertube API with TVHTML5_SIMPLY_EMBEDDED_PLAYER context.
+// This client type works from cloud/server IPs — it's the same approach used by
+// youtube-transcript-api (Python). No API key required; no PO token required for
+// public videos. ANDROID returned HTTP 400 from Vercel's IP range.
 async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptResult> {
   try {
     const body = {
       videoId,
       context: {
         client: {
-          clientName: 'ANDROID',
-          clientVersion: '19.09.37',
-          androidSdkVersion: 30,
+          clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
+          clientVersion: '2.0',
           hl: 'es',
           gl: 'AR',
+        },
+        thirdParty: {
+          embedUrl: 'https://www.youtube.com',
         },
       },
     }
 
     const res = await fetch(
-      `https://www.youtube.com/youtubei/v1/player?key=${INNERTUBE_KEY}&prettyPrint=false`,
+      'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
-          'X-YouTube-Client-Name': '3',
-          'X-YouTube-Client-Version': '19.09.37',
+          'Origin': 'https://www.youtube.com',
+          'Referer': 'https://www.youtube.com/',
+          'X-YouTube-Client-Name': '85',
+          'X-YouTube-Client-Version': '2.0',
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(20_000),
