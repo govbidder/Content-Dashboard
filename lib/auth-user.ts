@@ -174,7 +174,15 @@ export async function requireActiveClient(): Promise<{
   }
 
   if (!access) {
-    throw new ForbiddenError('NO_CLIENT_ACCESS')
+    // Cookie points to a client the user no longer has access to (e.g. user
+    // created before auto-workspace flow). Fall back to first accessible client.
+    const fallback = await db.clientAccess.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: { clientId: true },
+    })
+    if (!fallback) throw new ForbiddenError('NO_CLIENT_ACCESS')
+    return { userId, clientId: fallback.clientId }
   }
   return { userId, clientId }
 }
