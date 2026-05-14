@@ -36,7 +36,7 @@ export const CreateUserSchema = z.object({
   password: z.string().min(8).max(72),
   displayName: z.string().min(1).max(120).optional(),
   globalRole: GlobalRoleSchema.default('MEMBER'),
-  clientId: z.string().optional(),
+  themeKey: z.enum(['eternity', 'govbidder']).default('eternity'),
 })
 
 export function slugify(name: string): string {

@@ -259,7 +259,6 @@ export function UsersAdminClient() {
 
       {showCreateModal && (
         <CreateUserModal
-          allClients={clients}
           onClose={() => setShowCreateModal(false)}
           onCreated={loadUsers}
         />
