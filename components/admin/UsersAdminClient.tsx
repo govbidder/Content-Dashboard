@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, Loader2, Settings } from 'lucide-react'
+import { Check, Loader2, Settings, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { logClientError } from '@/lib/client-errors'
 import { ClientAccessModal } from './ClientAccessModal'
+import { CreateUserModal } from './CreateUserModal'
 
 type GlobalRole = 'PENDING' | 'MEMBER' | 'SUPER_ADMIN'
 
@@ -48,6 +49,7 @@ export function UsersAdminClient() {
   )
   const [busyId, setBusyId] = useState<string | null>(null)
   const [modalUser, setModalUser] = useState<User | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const loadUsers = useCallback(async () => {
     const res = await fetch('/api/admin/users')
@@ -100,8 +102,9 @@ export function UsersAdminClient() {
 
   return (
     <>
-      {/* Filter bar */}
-      <div className="flex gap-1.5 mb-4 flex-wrap">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex gap-1.5 flex-wrap">
         {ROLE_FILTERS.map((f) => {
           const active = filter === f.key
           return (
@@ -119,6 +122,14 @@ export function UsersAdminClient() {
             </button>
           )
         })}
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-opacity hover:opacity-90"
+          style={{ backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' }}
+        >
+          <UserPlus size={13} /> Crear usuario
+        </button>
       </div>
 
       {/* Table */}
@@ -243,6 +254,14 @@ export function UsersAdminClient() {
           allClients={clients}
           onClose={() => setModalUser(null)}
           onChanged={loadUsers}
+        />
+      )}
+
+      {showCreateModal && (
+        <CreateUserModal
+          allClients={clients}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={loadUsers}
         />
       )}
     </>

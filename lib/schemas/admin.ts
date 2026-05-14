@@ -31,6 +31,14 @@ export const SetActiveClientSchema = z.object({
   clientId: z.string().min(1),
 })
 
+export const CreateUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8).max(72),
+  displayName: z.string().min(1).max(120).optional(),
+  globalRole: GlobalRoleSchema.default('MEMBER'),
+  clientId: z.string().optional(),
+})
+
 export function slugify(name: string): string {
   return name
     .toLowerCase()

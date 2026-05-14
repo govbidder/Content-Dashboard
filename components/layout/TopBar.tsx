@@ -5,7 +5,6 @@ import { Eye, Users, TrendingUp, Menu } from 'lucide-react'
 import { formatM, formatPercent } from '@/lib/utils/formatters'
 import { ThemeToggle } from './ThemeToggle'
 import { MobileSidebarContext } from './LayoutShell'
-import { ClientSwitcher } from './ClientSwitcher'
 
 interface GlobalStats {
   followers: number
@@ -138,7 +137,6 @@ export function TopBar() {
 
       {/* Right actions */}
       <div className="flex items-center gap-2">
-        <ClientSwitcher />
         <ThemeToggle />
       </div>
     </header>
