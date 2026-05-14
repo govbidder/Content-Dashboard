@@ -235,29 +235,42 @@ async function fetchFromInnertubeClient(
   }
 }
 
-// TVHTML5_SIMPLY_EMBEDDED_PLAYER — works from cloud IPs, but doesn't expose ASR captions.
-const INNERTUBE_TVHTML5: InnertubeClientConfig = {
-  clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
-  clientVersion: '2.0',
-  key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
-}
-
-// IOS client — also works from cloud IPs and exposes ASR/auto-generated captions.
-const INNERTUBE_IOS: InnertubeClientConfig = {
-  clientName: 'IOS',
-  clientVersion: '19.09.3',
-  key: 'AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc',
-  userAgent: 'com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)',
-}
+// Embedded-player clients that work from cloud IPs (no 400).
+// TVHTML5_SIMPLY_EMBEDDED: doesn't expose ASR captions.
+// WEB_EMBEDDED_PLAYER: web variant — same key, may expose ASR.
+// TVHTML5 (non-simplified): TV variant with broader caption access.
+const INNERTUBE_CLIENTS: InnertubeClientConfig[] = [
+  {
+    clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
+    clientVersion: '2.0',
+    key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+  },
+  {
+    clientName: 'WEB_EMBEDDED_PLAYER',
+    clientVersion: '2.20210721.00.00',
+    key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+  },
+  {
+    clientName: 'TVHTML5',
+    clientVersion: '7.20210224.00.00',
+    key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+  },
+]
 
 async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptResult> {
-  const tv = await fetchFromInnertubeClient(videoId, INNERTUBE_TVHTML5)
-  if (tv.transcript) return tv
+  let lastResult: YouTubeTranscriptResult = { transcript: null, provider: 'watch_page', reason: 'no_clients' }
 
-  if (tv.reason === 'login_required' || tv.reason === 'age_restricted') return tv
+  for (const cfg of INNERTUBE_CLIENTS) {
+    const result = await fetchFromInnertubeClient(videoId, cfg)
+    if (result.transcript) return result
 
-  console.warn(`[transcript] TVHTML5 ${videoId} → ${tv.reason}, trying IOS client`)
-  return fetchFromInnertubeClient(videoId, INNERTUBE_IOS)
+    lastResult = result
+    if (result.reason === 'login_required' || result.reason === 'age_restricted') break
+
+    console.warn(`[transcript] ${cfg.clientName} ${videoId} → ${result.reason}`)
+  }
+
+  return lastResult
 }
 
 // Fallback: scrape the watch page directly (works locally, blocked on Vercel).
