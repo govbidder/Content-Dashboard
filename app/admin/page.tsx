@@ -27,7 +27,7 @@ export default async function AdminOverviewPage() {
       highlight: pendingCount > 0,
     },
     {
-      label: 'Clientes',
+      label: 'Temas',
       value: clientCount,
       icon: Building2,
       href: '/admin/clients',
@@ -39,7 +39,7 @@ export default async function AdminOverviewPage() {
       <PageHeader
         eyebrow="Admin"
         title="Panel de administración"
-        description="Gestión de usuarios, roles y clientes."
+        description="Gestión de usuarios, roles y temas."
         icon={Shield}
       />
 

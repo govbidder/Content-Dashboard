@@ -144,7 +144,7 @@ export function UsersAdminClient() {
           <div className="col-span-3">Email</div>
           <div className="col-span-2">Nombre</div>
           <div className="col-span-2">Rol</div>
-          <div className="col-span-3">Clientes</div>
+          <div className="col-span-3">Tema</div>
           <div className="col-span-2 text-right">Acciones</div>
         </div>
 

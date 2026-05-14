@@ -69,7 +69,7 @@ const NAV: NavItem[] = [
   { group: 'IA', label: 'Eternity AI',            href: '/ai',                icon: Bot },
   { group: 'Admin', label: 'Resumen',  href: '/admin',         icon: Shield,    requiresSuperAdmin: true },
   { group: 'Admin', label: 'Usuarios', href: '/admin/users',   icon: UserCog,   requiresSuperAdmin: true },
-  { group: 'Admin', label: 'Clientes', href: '/admin/clients', icon: Building2, requiresSuperAdmin: true },
+  { group: 'Admin', label: 'Temas', href: '/admin/clients', icon: Building2, requiresSuperAdmin: true },
 ]
 
 export function CommandPalette() {
@@ -184,7 +184,7 @@ export function CommandPalette() {
             <CmdSearch size={16} style={{ color: 'var(--muted-foreground)' }} />
             <Command.Input
               autoFocus
-              placeholder="Buscar página, cambiar de cliente, alternar tema…"
+              placeholder="Buscar página, alternar tema…"
               className="flex-1 bg-transparent outline-none text-sm placeholder:opacity-50"
               style={{ color: 'var(--foreground)' }}
             />
@@ -244,7 +244,7 @@ export function CommandPalette() {
 
             {clients.length > 1 && (
               <Command.Group
-                heading="Cambiar cliente"
+                heading="Cambiar tema"
                 className="cmdk-group [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-eyebrow"
               >
                 {clients.map((c) => (

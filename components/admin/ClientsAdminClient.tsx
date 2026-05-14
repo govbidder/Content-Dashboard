@@ -42,7 +42,7 @@ export function ClientsAdminClient() {
         const data = await res.json().catch(() => null)
         throw new Error(data?.error ?? `Error ${res.status}`)
       }
-      toast.success(`Cliente eliminado`)
+      toast.success(`Tema eliminado`)
       setDeleting(null)
       load()
     } catch (err) {
@@ -60,7 +60,7 @@ export function ClientsAdminClient() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-opacity hover:opacity-90"
           style={{ backgroundColor: 'var(--accent)', color: 'var(--accent-foreground)' }}
         >
-          <Plus size={13} /> Nuevo cliente
+          <Plus size={13} /> Nuevo tema
         </button>
       </div>
 
@@ -86,7 +86,7 @@ export function ClientsAdminClient() {
         )}
         {rows?.length === 0 && (
           <div className="px-4 py-8 text-xs text-center" style={{ color: 'var(--muted-foreground)' }}>
-            Sin clientes todavía.
+            Sin temas todavía.
           </div>
         )}
 
@@ -140,7 +140,7 @@ export function ClientsAdminClient() {
 
       {deleting && (
         <ConfirmDeleteModal
-          title="Eliminar cliente"
+          title="Eliminar tema"
           description={
             <>
               Se eliminará <strong>{deleting.name}</strong> y TODOS sus datos asociados

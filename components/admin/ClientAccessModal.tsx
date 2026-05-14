@@ -69,7 +69,7 @@ export function ClientAccessModal({ user, allClients, onClose, onChanged }: Prop
     <motion.div
       role="dialog"
       aria-modal="true"
-      aria-label="Gestionar acceso a clientes"
+      aria-label="Gestionar acceso"
       className="fixed inset-0 z-modal-overlay flex items-center justify-center p-4 glass-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -109,7 +109,7 @@ export function ClientAccessModal({ user, allClients, onClose, onChanged }: Prop
         <div className="p-4 max-h-[60vh] overflow-y-auto space-y-1">
           {allClients.length === 0 && (
             <p className="text-xs text-center py-6" style={{ color: 'var(--muted-foreground)' }}>
-              No hay clientes creados.
+              No hay temas creados.
             </p>
           )}
           {allClients.map((c) => {

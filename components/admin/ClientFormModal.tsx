@@ -63,7 +63,7 @@ export function ClientFormModal({ editing, onClose, onSaved }: Props) {
     <motion.div
       role="dialog"
       aria-modal="true"
-      aria-label={editing ? 'Editar cliente' : 'Nuevo cliente'}
+      aria-label={editing ? 'Editar tema' : 'Nuevo tema'}
       className="fixed inset-0 z-modal-overlay flex items-center justify-center p-4 glass-overlay"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
@@ -86,7 +86,7 @@ export function ClientFormModal({ editing, onClose, onSaved }: Props) {
           style={{ borderBottom: '1px solid var(--border)' }}
         >
           <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-            {editing ? 'Editar cliente' : 'Nuevo cliente'}
+            {editing ? 'Editar tema' : 'Nuevo tema'}
           </h2>
           <button onClick={onClose} className="p-1 rounded hover:opacity-70 transition-opacity">
             <X size={16} style={{ color: 'var(--muted-foreground)' }} />
@@ -102,7 +102,7 @@ export function ClientFormModal({ editing, onClose, onSaved }: Props) {
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Mi cliente"
+              placeholder="Mi tema"
               className="w-full text-xs rounded-lg px-3 py-2 outline-none"
               style={{
                 backgroundColor: 'var(--muted)',
@@ -118,7 +118,7 @@ export function ClientFormModal({ editing, onClose, onSaved }: Props) {
             <input
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="mi-cliente"
+              placeholder="mi-tema"
               className="w-full text-xs font-mono rounded-lg px-3 py-2 outline-none"
               style={{
                 backgroundColor: 'var(--muted)',
