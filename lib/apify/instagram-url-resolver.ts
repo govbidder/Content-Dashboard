@@ -29,15 +29,19 @@ interface ApifyItem {
   video_url?: string
   videoUrlHd?: string
   videoUrlSd?: string
+  videoPlaybackUrl?: string
   mediaUrl?: string
   video?: string
   downloadUrl?: string
   postVideoUrl?: string
   media?: { videoUrl?: string }
+  // Some scrapers return a `videos` array with {url, ...} entries
+  videos?: Array<{ url?: string; src?: string }>
   caption?: string
   text?: string
   description?: string
   title?: string
+  type?: string
   ownerUsername?: string
   username?: string
   authorUsername?: string
@@ -78,11 +82,14 @@ function pickVideoUrl(item: ApifyItem): string | null {
     item.video_url ??
     item.videoUrlHd ??
     item.videoUrlSd ??
+    item.videoPlaybackUrl ??
     item.mediaUrl ??
     item.video ??
     item.downloadUrl ??
     item.postVideoUrl ??
     item.media?.videoUrl ??
+    item.videos?.[0]?.url ??
+    item.videos?.[0]?.src ??
     null
   )
 }
@@ -173,17 +180,22 @@ export async function resolveInstagramUrl(rawUrl: string): Promise<InstagramReso
   const withSlash = `${base}/`
 
   // Pass 1 — actors that accept `directUrls`. Try with and without trailing slash.
+  // Only accept an item if it actually has a videoUrl — otherwise keep trying.
   for (const actor of DIRECT_URL_ACTORS) {
     for (const url of [withSlash, base]) {
       for (const input of actor.buildInputs(url)) {
         const item = await runActor(actor.id, input)
-        if (item) {
+        const videoUrl = item ? pickVideoUrl(item) : null
+        if (videoUrl) {
           return {
-            videoUrl: pickVideoUrl(item),
-            caption: pickCaption(item),
-            username: pickUsername(item) ?? username,
-            duration: pickDuration(item),
+            videoUrl,
+            caption: pickCaption(item!),
+            username: pickUsername(item!) ?? username,
+            duration: pickDuration(item!),
           }
+        }
+        if (item) {
+          console.warn('[instagram-resolver] item has no videoUrl. keys:', Object.keys(item).join(', '))
         }
       }
     }
@@ -197,12 +209,13 @@ export async function resolveInstagramUrl(rawUrl: string): Promise<InstagramReso
       username,
       resultsLimit: 20,
     })
-    if (item) {
+    const videoUrl = item ? pickVideoUrl(item) : null
+    if (videoUrl) {
       return {
-        videoUrl: pickVideoUrl(item),
-        caption: pickCaption(item),
-        username: pickUsername(item) ?? username,
-        duration: pickDuration(item),
+        videoUrl,
+        caption: pickCaption(item!),
+        username: pickUsername(item!) ?? username,
+        duration: pickDuration(item!),
       }
     }
   }
