@@ -169,9 +169,8 @@ async function downloadCaptionTrack(baseUrl: string): Promise<YouTubeTranscriptR
 }
 
 // Primary strategy: YouTube Innertube API with TVHTML5_SIMPLY_EMBEDDED_PLAYER context.
-// This client type works from cloud/server IPs — it's the same approach used by
-// youtube-transcript-api (Python). No API key required; no PO token required for
-// public videos. ANDROID returned HTTP 400 from Vercel's IP range.
+// Minimal payload — extra fields (thirdParty, hl, gl) can trigger 400 from cloud IPs.
+// Key AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8 is the public TVHTML5 Innertube key.
 async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptResult> {
   try {
     const body = {
@@ -180,25 +179,16 @@ async function fetchFromInnertube(videoId: string): Promise<YouTubeTranscriptRes
         client: {
           clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER',
           clientVersion: '2.0',
-          hl: 'es',
-          gl: 'AR',
-        },
-        thirdParty: {
-          embedUrl: 'https://www.youtube.com',
         },
       },
     }
 
     const res = await fetch(
-      'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
+      'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Origin': 'https://www.youtube.com',
-          'Referer': 'https://www.youtube.com/',
-          'X-YouTube-Client-Name': '85',
-          'X-YouTube-Client-Version': '2.0',
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(20_000),
