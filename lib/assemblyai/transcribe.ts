@@ -8,7 +8,7 @@ export interface TranscriptionResult {
   raw: unknown
 }
 
-// AssemblyAI pricing: $0.37/hour for Nano, $0.65/hour for Best
+// AssemblyAI pricing: $0.37/hour for Universal-2
 const COST_PER_AUDIO_HOUR_USD = 0.37
 
 export async function transcribeFromUrl(audioUrl: string): Promise<TranscriptionResult> {
@@ -19,7 +19,7 @@ export async function transcribeFromUrl(audioUrl: string): Promise<Transcription
 
   const transcript = await client.transcripts.transcribe({
     audio_url: audioUrl,
-    speech_models: ['nano'],
+    speech_models: ['universal-2'],
     language_detection: true,
   })
 
