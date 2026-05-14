@@ -116,15 +116,38 @@ export async function requireActiveClient(): Promise<{
   clientId: string
 }> {
   const userId = await requireUserId()
-  const clientId = await getActiveClientId()
-  if (!clientId) {
-    throw new ForbiddenError('NO_ACTIVE_CLIENT')
+  const cookieClientId = await getActiveClientId()
+
+  // If no cookie, try to auto-resolve the first accessible client so API
+  // calls don't fail with FORBIDDEN just because the cookie was lost (e.g.
+  // after a deploy or browser clear). The bootstrap in app/layout.tsx will
+  // persist the cookie on the next page load.
+  if (!cookieClientId) {
+    const profile = await db.profile.findUnique({
+      where: { id: userId },
+      select: { globalRole: true },
+    })
+    if (!profile) throw new UnauthorizedError()
+
+    if (profile.globalRole === 'SUPER_ADMIN') {
+      const first = await db.client.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } })
+      if (!first) throw new ForbiddenError('NO_ACTIVE_CLIENT')
+      return { userId, clientId: first.id }
+    }
+
+    const access = await db.clientAccess.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: { clientId: true },
+    })
+    if (!access) throw new ForbiddenError('NO_ACTIVE_CLIENT')
+    return { userId, clientId: access.clientId }
   }
 
+  const clientId = cookieClientId
+
   // Fetch profile globalRole + the user's access row for this client in one
-  // parallel batch (lib-004). Previously did serial profile → access lookups,
-  // doubling auth latency on every API call. Non-admin common path is now a
-  // single round-trip window.
+  // parallel batch. Non-admin common path is a single round-trip window.
   const [profile, access] = await Promise.all([
     db.profile.findUnique({
       where: { id: userId },
@@ -137,14 +160,10 @@ export async function requireActiveClient(): Promise<{
   ])
 
   if (!profile) {
-    // middleware should have created one; fall back to unauthorized
     throw new UnauthorizedError()
   }
 
   if (profile.globalRole === 'SUPER_ADMIN') {
-    // SUPER_ADMIN bypass: any existing client they selected is accessible.
-    // If they already have an access row we're done; otherwise verify the
-    // client exists (rare extra roundtrip, only for admin + no-access case).
     if (access) return { userId, clientId }
     const exists = await db.client.findUnique({
       where: { id: clientId },
