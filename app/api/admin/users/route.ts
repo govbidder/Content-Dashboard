@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { adminAuthOr401, getClientIp } from '@/lib/admin/guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit } from '@/lib/utils/ratelimit'
-import { CreateUserSchema } from '@/lib/schemas/admin'
+import { CreateUserSchema, slugify } from '@/lib/schemas/admin'
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await adminAuthOr401()
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { email, password, displayName, globalRole, clientId } = parsed.data
+  const { email, password, displayName, globalRole, themeKey } = parsed.data
 
   try {
     const supabase = createAdminClient()
@@ -99,15 +99,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       update: { displayName: displayName ?? undefined, globalRole },
     })
 
-    if (clientId) {
-      await db.clientAccess.upsert({
-        where: { userId_clientId: { userId, clientId } },
-        create: { userId, clientId },
-        update: {},
-      })
-    }
+    // Auto-create a personal workspace (client) for this user.
+    const clientName = displayName ?? email.split('@')[0] ?? 'workspace'
+    const baseSlug = slugify(clientName)
+    // Ensure slug uniqueness by appending a short timestamp suffix.
+    const slug = `${baseSlug}-${Date.now().toString(36)}`
 
-    return NextResponse.json({ id: userId }, { status: 201 })
+    const client = await db.client.create({
+      data: { name: clientName, slug, themeKey },
+    })
+
+    await db.clientAccess.create({
+      data: { userId, clientId: client.id },
+    })
+
+    return NextResponse.json({ id: userId, clientId: client.id }, { status: 201 })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[admin/users/POST] error:', message)

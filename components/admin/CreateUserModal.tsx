@@ -6,21 +6,25 @@ import { toast } from 'sonner'
 import { logClientError } from '@/lib/client-errors'
 
 type GlobalRole = 'PENDING' | 'MEMBER' | 'SUPER_ADMIN'
-type ClientOpt = { id: string; name: string; slug: string }
+type ThemeKey = 'eternity' | 'govbidder'
+
+const THEMES: { key: ThemeKey; label: string }[] = [
+  { key: 'eternity', label: 'Eternity (oscuro)' },
+  { key: 'govbidder', label: 'GovBidder (claro)' },
+]
 
 interface Props {
-  allClients: ClientOpt[]
   onClose: () => void
   onCreated: () => void
 }
 
-export function CreateUserModal({ allClients, onClose, onCreated }: Props) {
+export function CreateUserModal({ onClose, onCreated }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [displayName, setDisplayName] = useState('')
   const [globalRole, setGlobalRole] = useState<GlobalRole>('MEMBER')
-  const [clientId, setClientId] = useState(allClients[0]?.id ?? '')
+  const [themeKey, setThemeKey] = useState<ThemeKey>('eternity')
   const [busy, setBusy] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -36,7 +40,7 @@ export function CreateUserModal({ allClients, onClose, onCreated }: Props) {
           password,
           displayName: displayName || undefined,
           globalRole,
-          clientId: clientId || undefined,
+          themeKey,
         }),
       })
       const data = await res.json().catch(() => null)
@@ -151,17 +155,16 @@ export function CreateUserModal({ allClients, onClose, onCreated }: Props) {
 
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--muted-foreground)' }}>
-                Cliente
+                Estética
               </label>
               <select
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
+                value={themeKey}
+                onChange={(e) => setThemeKey(e.target.value as ThemeKey)}
                 className="rounded-xl px-3 py-2 text-sm outline-none"
                 style={{ backgroundColor: 'var(--muted)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
               >
-                <option value="">— Sin asignar —</option>
-                {allClients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                {THEMES.map((t) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
                 ))}
               </select>
             </div>
